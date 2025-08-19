@@ -33,11 +33,9 @@ jobs:
             <head>
               <meta charset="utf-8" />
               <meta name="viewport" content="width=device-width, initial-scale=1" />
-              <title>Chat Widget Demo</title>
+              <title>Chat Widget</title>
             </head>
             <body>
-              <h1>Chat Widget Demo</h1>
-              <p>If you see the floating chat icon, deployment worked.</p>
               <chat-bot-widget></chat-bot-widget>
               <script src="./chatbot-widget.js" defer></script>
             </body>
