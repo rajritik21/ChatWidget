@@ -1,6 +1,6 @@
 import { h, render } from 'preact';
 import ChatWidget from './ChatWidget';
-import './index.css';
+import cssUrl from './index.css?url';
 
 class ChatBotWidgetElement extends HTMLElement {
   constructor() {
@@ -13,12 +13,29 @@ class ChatBotWidgetElement extends HTMLElement {
     this._mounted = false;
   }
 
-  connectedCallback() {
+  async connectedCallback() {
     if (this._mounted) return;
-    // With css-injected-by-js, styles are injected into document; clone into shadow for isolation.
-    const collectedStyles = Array.from(document.querySelectorAll('style[data-vite-dev-id], style[data-css-injected]'));
-    if (collectedStyles.length) {
-      this._styleTag.textContent = collectedStyles.map(s => s.textContent || '').join('\n');
+    try {
+      const currentScript = document.currentScript || (function() {
+        const scripts = document.getElementsByTagName('script');
+        return scripts[scripts.length - 1] || null;
+      })();
+      const scriptBase = currentScript ? new URL('.', currentScript.src) : new URL('.', window.location.href);
+      let cssFileName = 'index.css';
+      try {
+        const asUrl = new URL(String(cssUrl), window.location.href);
+        const parts = asUrl.pathname.split('/');
+        cssFileName = parts[parts.length - 1] || 'index.css';
+      } catch (_) {
+        const parts = String(cssUrl).split('/');
+        cssFileName = parts[parts.length - 1] || 'index.css';
+      }
+      const resolvedCssUrl = new URL(cssFileName, scriptBase).toString();
+      const res = await fetch(resolvedCssUrl, { cache: 'force-cache' });
+      const cssText = await res.text();
+      this._styleTag.textContent = cssText;
+    } catch (_) {
+      // Non-fatal if CSS fails; widget still mounts
     }
     render(h(ChatWidget, {}), this._mountPoint);
     this._mounted = true;

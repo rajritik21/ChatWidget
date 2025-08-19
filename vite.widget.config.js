@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
-import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
+// Remove css-injected plugin; we'll fetch CSS file at runtime to keep Shadow DOM isolation
 
 export default defineConfig({
-  plugins: [preact(), cssInjectedByJsPlugin()],
+  plugins: [preact()],
   build: {
     lib: {
       entry: 'src/widget.js',
