@@ -108,7 +108,7 @@ function FAQDashboard({ onGoBack }) {
       }
     };
     return (
-      <div className={`ml-${path.length * 3} sm:ml-${path.length * 4} md:ml-${path.length * 5} mt-1.5 sm:mt-2`}>
+      <div className="mt-1.5 sm:mt-2" style={{ marginLeft: `${path.length * 12}px` }}>
         {options.map(option => {
           const optionKey = path.join('-') + '-' + option.id;
           const showThisOptionResponse = optionResponseStates[optionKey];
@@ -166,7 +166,7 @@ function FAQDashboard({ onGoBack }) {
       <div className="bg-[linear-gradient(270deg,_#A7BEFE_0%,_#6E6EC5_36.11%,_#5347AA_64.88%,_#43319A_100%)] rounded-t-xl sm:rounded-t-2xl md:rounded-t-3xl p-2 sm:p-2.5 relative flex-shrink-0">
         <div className="flex items-center justify-center relative">
           <button 
-            className="absolute left-0 top-1/2 transform -translate-y-1/2 bg-white/25 text-white border-none rounded-full w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 flex items-center justify-center text-sm sm:text-base md:text-lg cursor-pointer transition-all duration-200 p-0 shadow-md hover:bg-white/35 hover:scale-105"
+            className="absolute left-0 top-1/2 transform -translate-y-[60%] bg-white/25 text-white border-none rounded-full w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 flex items-center justify-center text-sm sm:text-base md:text-lg cursor-pointer transition-all duration-200 p-0 shadow-md hover:bg-white/35 hover:scale-105"
             onClick={onGoBack}
           >
             ←

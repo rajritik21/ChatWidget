@@ -9,7 +9,7 @@ function ChatIcon({ onClick }) {
         fixed right-8 bottom-8
         w-14 h-14
         rounded-full
-        bg-gradient-to-br from-[#6C57FF] to-[#9A73FF]
+        bg-[linear-gradient(225deg,_#6C57FF_0%,_#9A73FF_100%)]
         text-white text-2xl
         border-none shadow-lg
         flex items-center justify-center
