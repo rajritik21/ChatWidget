@@ -25,6 +25,24 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build:widget
+      - name: Create demo index.html
+        run: |
+          cat > dist-widget/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <title>Chat Widget Demo</title>
+            </head>
+            <body>
+              <h1>Chat Widget Demo</h1>
+              <p>If you see the floating chat icon, deployment worked.</p>
+              <chat-bot-widget></chat-bot-widget>
+              <script src="./chatbot-widget.js" defer></script>
+            </body>
+          </html>
+          EOF
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist-widget
