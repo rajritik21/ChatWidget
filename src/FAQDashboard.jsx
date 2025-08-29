@@ -1,80 +1,80 @@
-// =============================
-// FAQDashboard.jsx - Component Index
-// =============================
-// 1. Imports
-// 2. FAQDashboard Component
-//    2.1. State Declarations
-//    2.2. useEffect: Fetch FAQs
-//    2.3. useEffect: Input Focus
-//    2.4. Helper Functions
-//        - isTalkToSomeone
-//        - findOptionByPath
-//    2.5. OptionTree: Recursive Option Renderer
-//    2.6. handleSend: User Message Handler
-//    2.7. Render: Main Return (Header, Body, Input)
-// 3. Export
-
 import { h } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
+import ElectricBorder from './ElectricBorder'; // Adjust the path if needed
 
 function FAQDashboard({ onGoBack }) {
   // =============================
-  // 2.1. State Declarations
+  // State Declarations
   // =============================
-  const [faqs, setFaqs] = useState([]); // FAQ data from API
-  const [loading, setLoading] = useState(true); // Loading state for FAQ fetch
-  const [error, setError] = useState(null); // Error state for FAQ fetch
-  const [activeId, setActiveId] = useState(null); // Currently selected FAQ id
-  const [inputEnabled, setInputEnabled] = useState(false); // Enables input for 'Talk to someone?'
-  const inputRef = typeof window !== 'undefined' ? window.preactHooks?.useRef?.() || { current: null } : { current: null }; // Input ref for focus
-  const [inputValue, setInputValue] = useState(""); // User input value
-  const [userMessages, setUserMessages] = useState([]); // User messages in chat
-  const [activeOptionPath, setActiveOptionPath] = useState([]); // Path of selected nested options
-  const [showResponse, setShowResponse] = useState(false); // Controls main FAQ response visibility
-  const [showOptionResponse, setShowOptionResponse] = useState(false); // (Unused) Option response visibility
-  const [optionResponseStates, setOptionResponseStates] = useState({}); // Controls nested option response visibility
-  const [faqLoading, setFaqLoading] = useState({}); // Loading state for each FAQ button
-  const [optionLoading, setOptionLoading] = useState({}); // Loading state for each nested option button
+  const [faqs, setFaqs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [activeId, setActiveId] = useState(null);
+  const [inputEnabled, setInputEnabled] = useState(true);
+  const inputRef = useRef(null);
+  const chatScrollRef = useRef(null);
+  const [inputValue, setInputValue] = useState("");
+  const [messages, setMessages] = useState([
+    {
+      type: 'bot',
+      content: 'Hi! How Can I help You? ✨',
+      timestamp: Date.now()
+    }
+  ]);
+  const [activeOptionPath, setActiveOptionPath] = useState([]);
+  const [showResponse, setShowResponse] = useState(false);
+  const [optionResponseStates, setOptionResponseStates] = useState({});
+  const [faqLoading, setFaqLoading] = useState({});
+  const [optionLoading, setOptionLoading] = useState({});
+  const [isTyping, setIsTyping] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   // =============================
-  // 2.2. useEffect: Fetch FAQs
+  // Auto-scroll to bottom function
+  // =============================
+  const scrollToBottom = () => {
+    if (chatScrollRef.current) {
+      setTimeout(() => {
+        chatScrollRef.current.scrollTo({
+          top: chatScrollRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }, 100);
+    }
+  };
+
+  // =============================
+  // Initialize
   // =============================
   useEffect(() => {
-    const fetchFaqs = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        // Add 0.5 second delay to simulate loading time
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const res = await fetch('http://localhost:5096/api/Faq');
-        const data = await res.json();
-        setFaqs(Array.isArray(data.result) ? data.result : []);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchFaqs();
+    setFaqs([]);
+    setLoading(false);
+    setInputEnabled(true);
+    scrollToBottom();
   }, []);
 
   // =============================
-  // 2.3. useEffect: Input Focus
+  // Auto-scroll when messages change
   // =============================
   useEffect(() => {
-    if (inputEnabled && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [inputEnabled]);
+    scrollToBottom();
+  }, [messages, isTyping]);
 
   // =============================
-  // 2.4. Helper Functions
+  // Input Focus Handler
   // =============================
-  // Checks if FAQ is 'Talk to someone?'
+  useEffect(() => {
+    if (inputEnabled && inputRef.current && !isTyping) {
+      inputRef.current.focus();
+    }
+  }, [inputEnabled, isTyping]);
+
+  // =============================
+  // Helper Functions
+  // =============================
   const isTalkToSomeone = (faq) =>
     faq.query && faq.query.trim().toLowerCase() === 'talk to someone?';
 
-  // Finds option by path (array of ids)
   function findOptionByPath(options, path) {
     let current = null;
     let opts = options;
@@ -87,58 +87,68 @@ function FAQDashboard({ onGoBack }) {
   }
 
   // =============================
-  // 2.5. OptionTree: Recursive Option Renderer
+  // Recursive Option Renderer
   // =============================
   function OptionTree({ options, path }) {
     if (!options || !options.length) return null;
     const selectedId = activeOptionPath[path.length] || null;
-    // Handles click for nested options with async delay and loading state
+    
     const handleOptionClick = async (option, currentPath) => {
       const optionKey = currentPath.join('-') + '-' + option.id;
       setOptionLoading(prev => ({ ...prev, [optionKey]: true }));
       try {
         setActiveOptionPath([...currentPath, option.id]);
         setOptionResponseStates(prev => ({ ...prev, [optionKey]: false }));
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 800));
         setOptionResponseStates(prev => ({ ...prev, [optionKey]: true }));
+        scrollToBottom();
       } catch (error) {
         setOptionResponseStates(prev => ({ ...prev, [optionKey]: true }));
       } finally {
         setOptionLoading(prev => ({ ...prev, [optionKey]: false }));
       }
     };
+
     return (
-      <div className="mt-1.5 sm:mt-2" style={{ marginLeft: `${path.length * 12}px` }}>
+      <div className="mt-3 sm:mt-4 animate-fadeIn" style={{ marginLeft: `${path.length * 16}px` }}>
         {options.map(option => {
           const optionKey = path.join('-') + '-' + option.id;
           const showThisOptionResponse = optionResponseStates[optionKey];
           const isLoading = optionLoading[optionKey];
           return (
             <div key={option.id} className="flex flex-col">
-              {/* Option button with spinner and async delay */}
               <button
-                className="bg-white border-2 border-[#A3B9FA] text-[#6D6CC4] rounded-full py-3 px-4 mt-3.5 text-xs font-medium cursor-pointer max-w-[70%] sm:max-w-[65%] md:max-w-[60%] self-end text-left transition-all duration-200 shadow-sm hover:bg-purple-50 hover:border-[#6C57FF] hover:text-[#6C57FF] flex items-center justify-between"
+                className="group relative bg-gradient-to-r from-white to-purple-50 border-2 border-purple-200 text-purple-700 rounded-2xl py-3 px-5 mt-4 text-sm font-semibold cursor-pointer max-w-[75%] sm:max-w-[70%] md:max-w-[65%] self-end text-left transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 hover:border-purple-400 hover:from-purple-50 hover:to-purple-100 transform active:scale-95 backdrop-blur-sm"
                 onClick={() => handleOptionClick(option, path)}
                 disabled={isLoading}
               >
-                {option.optionText}
-                {isLoading && (
-                  <svg className="w-4 h-4 ml-2 animate-spin inline-block" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                )}
+                <div className="flex items-center justify-between">
+                  <span className="flex-1 pr-2">{option.optionText}</span>
+                  {isLoading ? (
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                    </div>
+                  ) : (
+                    <div className="w-2 h-2 bg-purple-400 rounded-full group-hover:bg-purple-600 transition-colors duration-200"></div>
+                  )}
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-400/10 to-blue-400/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
               </button>
-              {/* Option response and recursive sub-options */}
+              
               {selectedId === option.id && showThisOptionResponse && (
-                <>
+                <div className="animate-slideIn">
                   {option.response && (
-                    <div className="bg-[#F4F4F4] text-[#171717] rounded-bl-4xl rounded-br-4xl rounded-tr-4xl p-2 sm:p-3 my-1.5 sm:my-2 text-xs sm:text-xs md:text-sm font-medium self-start">
-                      {option.response}
+                    <div className="bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 rounded-3xl rounded-tl-lg p-4 sm:p-5 my-3 sm:my-4 text-sm sm:text-base font-medium self-start shadow-md border border-gray-200 animate-fadeIn">
+                      <div className="flex items-start space-x-2">
+                        <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                        <div className="flex-1">{option.response}</div>
+                      </div>
                     </div>
                   )}
                   <OptionTree options={option.options} path={[...path, option.id]} />
-                </>
+                </div>
               )}
             </div>
           );
@@ -148,154 +158,341 @@ function FAQDashboard({ onGoBack }) {
   }
 
   // =============================
-  // 2.6. handleSend: User Message Handler
+  // Message Handler with Gemini API
   // =============================
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
-    if (!inputEnabled || !inputValue.trim()) return;
-    setUserMessages(msgs => [...msgs, inputValue.trim()]);
+    if (!inputEnabled || !inputValue.trim() || isTyping) return;
+    
+    const userMsg = inputValue.trim();
     setInputValue("");
+
+    // Add user message to chat
+    setMessages(msgs => [...msgs, {
+      type: 'user',
+      content: userMsg,
+      timestamp: Date.now()
+    }]);
+
+    // Show typing indicator
+    setIsTyping(true);
+    setError(null);
+
+    try {
+      const apiKey = "AIzaSyCJ63G5XT4zAkPMtGS-wrwbdl2fA9h3wn0";
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{ 
+            parts: [{ text: userMsg }] 
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 1024,
+          }
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error('API Error:', errorData);
+        throw new Error(`API request failed: ${errorData.error?.message || res.status}`);
+      }
+
+      const data = await res.json();
+      console.log('API Response:', data);
+      
+      const geminiReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
+      
+      // Add bot response to chat
+      setMessages(msgs => [...msgs, {
+        type: 'bot',
+        content: geminiReply,
+        timestamp: Date.now()
+      }]);
+
+    } catch (err) {
+      console.error('Gemini API error:', err);
+      const errorMessage = err.message.includes('API request failed') 
+        ? `Something went wrong. Please try again! 🔄`
+        : "Sorry, I'm having trouble connecting right now. Please try again! 🌐";
+        
+      setMessages(msgs => [...msgs, {
+        type: 'bot',
+        content: errorMessage,
+        timestamp: Date.now()
+      }]);
+      setError("Connection error. Please try again.");
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   // =============================
-  // 2.7. Render: Main Return (Header, Body, Input)
+  // Main Render
   // =============================
   return (
-    <div className="flex flex-col h-[400px] sm:h-[480px] md:h-[560px] min-h-[320px] sm:min-h-[400px] md:min-h-[440px] max-h-[400px] sm:max-h-[480px] md:max-h-[560px]">
-      {/* Chat Header */}
-      <div className="bg-[linear-gradient(270deg,_#A7BEFE_0%,_#6E6EC5_36.11%,_#5347AA_64.88%,_#43319A_100%)] rounded-t-xl sm:rounded-t-2xl md:rounded-t-3xl p-2 sm:p-2.5 relative flex-shrink-0">
-        <div className="flex items-center justify-center relative">
-          <button 
-            className="absolute left-0 top-1/2 transform -translate-y-[60%] bg-white/25 text-white border-none rounded-full w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 flex items-center justify-center text-sm sm:text-base md:text-lg cursor-pointer transition-all duration-200 p-0 shadow-md hover:bg-white/35 hover:scale-105"
-            onClick={onGoBack}
-          >
-            ←
-          </button>
-          <h3 className="m-0 text-base sm:text-lg md:text-xl font-semibold text-white text-center">ChatFlow</h3>
+    
+      <div className="w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl flex flex-col h-[85vh] sm:h-[90vh] md:h-[85vh] lg:h-[80vh] max-h-[800px] min-h-[700px] relative">
+        
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0 overflow-hidden rounded-3xl">
+          <div className="absolute -top-10 -left-10 w-20 h-20 bg-purple-400/20 rounded-full animate-pulse"></div>
+          <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-blue-400/20 rounded-full animate-pulse" style={{ animationDelay: '1s' }}></div>
+          <div className="absolute top-1/2 -right-5 w-16 h-16 bg-indigo-400/20 rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
         </div>
-        <small className="opacity-90 block text-xs sm:text-xs md:text-sm leading-relaxed text-white text-center mt-1 sm:mt-2">
-          A live chat interface that allows for seamless, natural communication and connection.
-        </small>
+
+        {/* Chat Header */}
+        <div className="relative bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 rounded-t-3xl p-4 sm:p-5 md:p-6 flex-shrink-0 shadow-2xl backdrop-blur-lg border border-white/20">
+          <div className="flex items-center justify-center relative">
+            <button 
+              className="absolute left-0 top-1/2 transform -translate-y-1/2 group bg-white/20 backdrop-blur-md text-white border-2 border-white/30 rounded-2xl w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-lg sm:text-xl cursor-pointer transition-all duration-300 hover:bg-white/30 hover:scale-110 hover:border-white/50 active:scale-95 shadow-lg"
+              onClick={onGoBack}
+            >
+              <span className="group-hover:animate-bounce">←</span>
+            </button>
+            {/* <div className="text-center">
+              <h3 className="m-0 text-xl sm:text-2xl md:text-3xl font-bold text-white bg-gradient-to-r from-white to-purple-100 bg-clip-text text-transparent animate-pulse">
+                AskRitik 💬
+              </h3>
+              <small className="opacity-90 block text-sm sm:text-base leading-relaxed text-purple-100 mt-2">
+               Ask Anything, Get Everything - Powered by Ritik 💭
+              </small>
+
+            </div> */}
+            <div className="text-center">
+  <h3 className="m-0 text-lg sm:text-xl md:text-2xl font-bold text-transparent bg-gradient-to-r from-cyan-300 via-teal-200 to-cyan-400 bg-clip-text drop-shadow-[0_0_6px_rgba(34,211,238,0.8)] animate-text-glow">
+    <span className="animate-text-wave">AskRitik</span> 💬
+  </h3>
+  <small className="opacity-90 block text-xs sm:text-sm leading-relaxed text-cyan-200 mt-2 animate-text-fade">
+    Ask Anything, Get Everything - Powered by Ritik 💭
+  </small>
+</div>
+
+          </div>
+        </div>
+
+        {/* Chat Body */}
+        <div
+  className="flex-1 border-x-2 border-white/20 flex flex-col overflow-hidden relative"
+  style={{
+    background: 'linear-gradient(135deg, #f3f4f6 0%, #e0e7ef 100%)', // Light gray gradient background
+    backdropFilter: 'blur(8px)'
+  }}
+>
+  {loading && (
+    <div className="flex flex-col items-center justify-center flex-1 animate-fadeIn">
+      <div className="relative mb-4">
+        <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+        <div className="absolute inset-2 border-4 border-transparent border-t-blue-400 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1s' }}></div>
       </div>
+      <div className="text-purple-700 font-semibold text-lg animate-pulse">Loading FAQs...</div>
+    </div>
+  )}
 
-      {/* Chat Body */}
-      <div className="p-2 sm:p-2.5 bg-white flex flex-col flex-1 overflow-hidden relative">
-        {loading && (
-          <div className="flex flex-col items-center justify-center h-32 sm:h-40 md:h-44">
-            <div className="mb-2 sm:mb-2.5 animate-spin">
-              <svg className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="18" stroke="#6C57FF" strokeWidth="4" strokeDasharray="90 60" strokeLinecap="round"/>
-              </svg>
-            </div>
-            <div className="text-[#44329B] font-medium text-xs sm:text-sm md:text-base">Loading FAQs...</div>
-          </div>
-        )}
+  {error && (
+    <div className="mx-4 mt-4 p-4 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-2xl text-center font-semibold shadow-lg animate-slideIn">
+      {error}
+    </div>
+  )}
 
-        {error && (
-          <div className="text-white bg-red-500 rounded-lg sm:rounded-xl p-3 sm:p-4 my-3 sm:my-4 md:my-5 text-center font-medium text-xs sm:text-xs md:text-sm">
-            Error: {error}
-          </div>
-        )}
-
-        {!loading && !error && (
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-gray-100 pb-2 sm:pb-2.5">
-            <div className="bg-[#F4F4F4] text-[#171717]  rounded-bl-4xl rounded-br-4xl rounded-tr-4xl p-2 sm:p-3 my-3 sm:my-4 max-w-[85%] sm:max-w-[80%] text-xs sm:text-xs md:text-sm font-medium self-start">
-              Hi! How Can I help You?
-            </div>
-            {/* FAQ List */}
-            {Array.isArray(faqs) && faqs.length > 0 ? (
-              faqs.map(faq => (
-                <div key={faq.id} className="flex flex-col">
-                  {/* FAQ button with spinner and async delay */}
-                  <button
-                    className="bg-white border border-[#A3B9FA] text-[#A3B9FA] rounded-3xl py-4 px-4 mt-3.5 text-xs font-medium cursor-pointer w-[160px] h-10 self-end text-left transition-all duration-200 shadow-sm hover:bg-purple-50 hover:border-[#6C57FF] hover:text-[#6C57FF] flex items-center justify-between"
-                    onClick={async () => {
-                      const loadingKey = faq.id;
-                      setFaqLoading(prev => ({ ...prev, [loadingKey]: true }));
-                      try {
-                        if (activeId === faq.id) {
-                          setActiveId(null);
-                          setShowResponse(false);
-                          setActiveOptionPath([]);
-                        } else {
-                          setActiveId(faq.id);
-                          setShowResponse(false);
-                          setActiveOptionPath([]);
-                          if (isTalkToSomeone(faq)) setInputEnabled(true);
-                          await new Promise(resolve => setTimeout(resolve, 500));
-                          setShowResponse(true);
-                        }
-                      } catch (error) {
-                        setShowResponse(true);
-                      } finally {
-                        setFaqLoading(prev => ({ ...prev, [loadingKey]: false }));
-                      }
-                    }}
-                    disabled={faqLoading[faq.id]}
-                  >
-                    {faq.query}
-                    {faqLoading[faq.id] && (
-                      <svg className="w-4 h-4 ml-2 animate-spin" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    )}
-                  </button>
-                  {/* FAQ response and options */}
-                  {activeId === faq.id && showResponse && (
-                    <>
-                      <div className="bg-[#F4F4F4] text-[#171717] rounded-bl-4xl rounded-br-4xl rounded-tr-4xl sm:rounded-bl-4xl sm:rounded-br-4xl sm:rounded-tr-4xl p-2 sm:p-3 my-1.5 sm:my-2 text-xs sm:text-xs md:text-sm font-medium self-start">
-                        {faq.response}
-                      </div>
-                      {/* Render options if present */}
-                      {faq.options && faq.options.length > 0 && (
-                        <OptionTree options={faq.options} path={[]} />
-                      )}
-                    </>
-                  )}
-                </div>
-              ))
-            ) : (
-              <div className="text-gray-500 text-center mt-4 sm:mt-6 text-xs sm:text-xs md:text-sm">No FAQs available.</div>
-            )}
-            {/* User messages */}
-            {userMessages.map((msg, idx) => (
-              <div key={idx} className="bg-[#FAF9FF] text-[#44329B] border border-[#44329B] rounded-bl-3xl rounded-br-3xl rounded-tl-3xl px-3 sm:px-4 py-1.5 sm:py-2 my-2 sm:my-2.5 text-xs sm:text-xs md:text-sm font-medium ml-auto text-right shadow-md max-w-fit
-">
-                {msg}
+  {!loading && (
+    <div 
+      ref={chatScrollRef}
+      className="flex-1 overflow-y-auto p-4 sm:p-5 md:p-6 space-y-4 scrollbar-thin scrollbar-thumb-purple-300 scrollbar-track-transparent hover:scrollbar-thumb-purple-400 scroll-smooth"
+      style={{
+        scrollbarWidth: 'thin',
+        scrollbarColor: '#a855f7 transparent'
+      }}
+    >
+      {/* Display all messages */}
+      {messages.map((message, idx) => (
+        <div key={`${message.type}-${idx}-${message.timestamp}`} className="animate-fadeIn">
+          {message.type === 'bot' ? (
+            <div className="flex items-start space-x-3 max-w-[90%]">
+              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg flex-shrink-0">
+                🤖
               </div>
-            ))}
-          </div>
-        )}
+              <div className="bg-gradient-to-r from-gray-50 to-white text-gray-800 rounded-3xl rounded-tl-lg p-4 sm:p-5 text-sm sm:text-base font-medium shadow-xl border border-gray-200 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-50/50 to-blue-50/50 pointer-events-none"></div>
+                <div className="relative">{message.content}</div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex justify-end">
+              <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-3xl rounded-tr-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base font-medium shadow-xl max-w-[80%] relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-400/20 to-blue-400/20 pointer-events-none"></div>
+                <div className="relative">{message.content}</div>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
 
-        {/* Input Form */}
-        <form className="relative w-full flex items-center mt-1.5 sm:mt-2 mb-3 sm:mb-4" onSubmit={handleSend}>
-          <input
-            className={`w-full border-none  bg-gray-100 py-2.5 sm:py-3 md:py-3.5 px-3 sm:px-4 rounded-full text-gray-800 text-xs sm:text-xs md:text-sm shadow-sm transition-all duration-200 ${
-              inputEnabled ? 'border-2 border-purple-500 bg-white' : ''
-            } ${!inputEnabled ? 'bg-gray-200 text-gray-400' : ''}`}
-            ref={inputRef}
-            value={inputValue}
-            onInput={e => setInputValue(e.target.value)}
-            placeholder="Let's share something"
-            disabled={!inputEnabled}
-          />
-          <button 
-            className={`absolute right-2 sm:right-2.5 bg-[#4C3DA3] border-none rounded-full text-white w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 flex items-center justify-center text-sm sm:text-base cursor-pointer transition-all duration-200 flex-shrink-0 shadow-md ${
-              !inputEnabled || !inputValue.trim() ? 'bg-[#4C3DA3] text-gray-300 cursor-not-allowed' : 'hover:bg-purple-600 hover:scale-105'
-            }`}
-            type="submit" 
-            disabled={!inputEnabled || !inputValue.trim()}
-          >
-            ➤
-          </button>
-        </form>
-      </div>
+      {/* Enhanced Typing Indicator */}
+      {isTyping && (
+        <div className="flex items-start space-x-3 max-w-[90%] animate-fadeIn">
+          <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg animate-pulse">
+            🤖
+          </div>
+          <div className="bg-gradient-to-r from-gray-50 to-white rounded-3xl rounded-tl-lg p-4 sm:p-5 shadow-xl border border-gray-200">
+            <div className="flex items-center space-x-2">
+              <div className="flex space-x-1">
+                <div className="w-3 h-3 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-bounce"></div>
+                <div className="w-3 h-3 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <div className="w-3 h-3 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+              </div>
+              <span className="text-gray-600 font-medium">AI is thinking...</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FAQ List */}
+      {Array.isArray(faqs) && faqs.length > 0 && (
+        faqs.map(faq => (
+          <div key={faq.id} className="animate-slideIn">
+            <button
+              className="group bg-gradient-to-r from-white to-purple-50 border-2 border-purple-200 text-purple-700 rounded-2xl py-3 px-5 ml-auto block text-sm font-semibold cursor-pointer transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 hover:border-purple-400 transform active:scale-95 relative overflow-hidden"
+              onClick={async () => {
+                const loadingKey = faq.id;
+                setFaqLoading(prev => ({ ...prev, [loadingKey]: true }));
+                try {
+                  if (activeId === faq.id) {
+                    setActiveId(null);
+                    setShowResponse(false);
+                    setActiveOptionPath([]);
+                  } else {
+                    setActiveId(faq.id);
+                    setShowResponse(false);
+                    setActiveOptionPath([]);
+                    if (isTalkToSomeone(faq)) setInputEnabled(true);
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    setShowResponse(true);
+                    scrollToBottom();
+                  }
+                } finally {
+                  setFaqLoading(prev => ({ ...prev, [loadingKey]: false }));
+                }
+              }}
+              disabled={faqLoading[faq.id]}
+            >
+              <div className="flex items-center justify-between">
+                <span>{faq.query}</span>
+                {faqLoading[faq.id] && (
+                  <div className="ml-3 w-5 h-5 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin"></div>
+                )}
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-400/10 to-blue-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+            </button>
+            
+            {activeId === faq.id && showResponse && (
+              <div className="animate-slideIn mt-4">
+                <div className="bg-gradient-to-r from-gray-50 to-white text-gray-800 rounded-3xl rounded-tl-lg p-4 sm:p-5 text-sm sm:text-base font-medium shadow-xl border border-gray-200">
+                  {faq.response}
+                </div>
+                {faq.options && faq.options.length > 0 && (
+                  <OptionTree options={faq.options} path={[]} />
+                )}
+              </div>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  )}
+</div>
+
+        {/* Enhanced Input Form */}
+        <div className="bg-white/95 backdrop-blur-lg rounded-b-3xl p-4 sm:p-5 md:p-6 border-2 border-white/20 border-t-0 flex-shrink-0 shadow-2xl">
+          <form className="relative" onSubmit={handleSend}>
+            <div className="relative group">
+              <ElectricBorder>
+                <input
+                  ref={inputRef}
+                  className={`w-full bg-white/90 backdrop-blur-sm py-4 sm:py-5 px-6 sm:px-7 pr-16 sm:pr-20 rounded-2xl text-gray-800 text-sm sm:text-base font-medium shadow-xl border-2 transition-all duration-300 placeholder-gray-500 ${
+                    inputFocused || inputValue 
+                      ? 'border-purple-500 shadow-[0_0_30px_rgba(168,85,247,0.4)] bg-white' 
+                      : 'border-gray-300 hover:border-purple-300'
+                  } ${
+                    !inputEnabled || isTyping ? 'bg-gray-100 text-gray-400 border-gray-200' : ''
+                  }`}
+                  style={{ borderColor: 'transparent' }} // Remove solid black border color
+                  value={inputValue}
+                  onInput={e => setInputValue(e.target.value)}
+                  onFocus={() => setInputFocused(true)}
+                  onBlur={() => setInputFocused(false)}
+                  placeholder={isTyping ? "AI is responding..." : "Type your message here... ✨"}
+                  disabled={!inputEnabled || isTyping}
+                />
+              </ElectricBorder>
+              {/* Glowing border effect */}
+              <div className={`absolute inset-0 rounded-2xl pointer-events-none transition-opacity duration-300 ${
+                inputFocused ? 'opacity-100' : 'opacity-0'
+              }`}>
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500 via-blue-500 to-indigo-500 blur-sm opacity-30 animate-pulse"></div>
+              </div>
+              <button 
+                className={`absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 rounded-xl w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-lg sm:text-xl cursor-pointer transition-all duration-300 shadow-lg backdrop-blur-sm ${
+                  !inputEnabled || !inputValue.trim() || isTyping 
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 hover:scale-110 active:scale-95 shadow-[0_0_20px_rgba(168,85,247,0.4)]'
+                }`}
+                type="submit" 
+                disabled={!inputEnabled || !inputValue.trim() || isTyping}
+              >
+                {isTyping ? (
+                  <div className="w-5 h-5 border-2 border-gray-400 border-t-gray-600 rounded-full animate-spin"></div>
+                ) : (
+                  <span className="transform rotate-45">✈️</span>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      
+
+      <style jsx>{`
+        .scrollbar-thin {
+          scrollbar-width: thin;
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+          width: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+          background: #a855f7;
+          border-radius: 3px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+          background: #9333ea;
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.6s ease-out forwards;
+        }
+        
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateX(30px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        .animate-slideIn {
+          animation: slideIn 0.5s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 }
 
-// =============================
-// 3. Export
-// =============================
-export default FAQDashboard; 
+export default FAQDashboard;

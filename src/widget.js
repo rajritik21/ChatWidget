@@ -91,4 +91,5 @@ export function mount(target) {
   return hostElement;
 }
 
-
+// Make mount function globally available
+window.ChatBotWidget = { mount };
