@@ -54,11 +54,15 @@ function FAQDashboard({ onGoBack }) {
   }, []);
 
   // =============================
-  // Auto-scroll when messages change
+  // Auto-scroll when messages change (only for user messages, not AI replies)
   // =============================
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
+    // Only auto-scroll if it's a user message or initial load
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.type === 'user') {
+      scrollToBottom();
+    }
+  }, [messages]);
 
   // =============================
   // Input Focus Handler
@@ -101,7 +105,7 @@ function FAQDashboard({ onGoBack }) {
         setOptionResponseStates(prev => ({ ...prev, [optionKey]: false }));
         await new Promise(resolve => setTimeout(resolve, 800));
         setOptionResponseStates(prev => ({ ...prev, [optionKey]: true }));
-        scrollToBottom();
+        // Don't auto-scroll for option responses
       } catch (error) {
         setOptionResponseStates(prev => ({ ...prev, [optionKey]: true }));
       } finally {
@@ -209,7 +213,7 @@ function FAQDashboard({ onGoBack }) {
       
       const geminiReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
       
-      // Add bot response to chat
+      // Add bot response to chat (this won't trigger auto-scroll)
       setMessages(msgs => [...msgs, {
         type: 'bot',
         content: geminiReply,
@@ -247,7 +251,7 @@ function FAQDashboard({ onGoBack }) {
           <div className="absolute top-1/2 -right-5 w-16 h-16 bg-indigo-400/20 rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
         </div>
 
-        {/* Chat Header */}
+        {/* Chat Header with proper styling */}
         <div className="relative bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 rounded-t-3xl p-4 sm:p-5 md:p-6 flex-shrink-0 shadow-2xl backdrop-blur-lg border border-white/20">
           <div className="flex items-center justify-center relative">
             <button 
@@ -256,24 +260,14 @@ function FAQDashboard({ onGoBack }) {
             >
               <span className="group-hover:animate-bounce">←</span>
             </button>
-            {/* <div className="text-center">
-              <h3 className="m-0 text-xl sm:text-2xl md:text-3xl font-bold text-white bg-gradient-to-r from-white to-purple-100 bg-clip-text text-transparent animate-pulse">
-                AskRitik 💬
+            <div className="text-center">
+              <h3 className="m-0 text-lg sm:text-xl md:text-2xl font-bold text-transparent bg-gradient-to-r from-purple-500 via-blue-500 to-indigo-500 bg-clip-text animate-text-glow">
+                <span className="animate-text-wave">AskRitik</span> 💬
               </h3>
-              <small className="opacity-90 block text-sm sm:text-base leading-relaxed text-purple-100 mt-2">
+              <small className="opacity-90 block text-xs sm:text-sm leading-relaxed text-cyan-200 mt-2 animate-text-fade">
                Ask Anything, Get Everything - Powered by Ritik 💭
               </small>
-
-            </div> */}
-            <div className="text-center">
-  <h3 className="m-0 text-lg sm:text-xl md:text-2xl font-bold text-transparent bg-gradient-to-r from-cyan-300 via-teal-200 to-cyan-400 bg-clip-text drop-shadow-[0_0_6px_rgba(34,211,238,0.8)] animate-text-glow">
-    <span className="animate-text-wave">AskRitik</span> 💬
-  </h3>
-  <small className="opacity-90 block text-xs sm:text-sm leading-relaxed text-cyan-200 mt-2 animate-text-fade">
-    Ask Anything, Get Everything - Powered by Ritik 💭
-  </small>
-</div>
-
+            </div>
           </div>
         </div>
 
@@ -374,7 +368,7 @@ function FAQDashboard({ onGoBack }) {
                     if (isTalkToSomeone(faq)) setInputEnabled(true);
                     await new Promise(resolve => setTimeout(resolve, 800));
                     setShowResponse(true);
-                    scrollToBottom();
+                    // Don't auto-scroll for FAQ responses
                   }
                 } finally {
                   setFaqLoading(prev => ({ ...prev, [loadingKey]: false }));
@@ -489,6 +483,39 @@ function FAQDashboard({ onGoBack }) {
         }
         .animate-slideIn {
           animation: slideIn 0.5s ease-out forwards;
+        }
+
+        /* New animated text effects */
+        @keyframes textGlow {
+          0%, 100% { 
+            text-shadow: 0 0 5px rgba(168, 85, 247, 0.5), 0 0 10px rgba(168, 85, 247, 0.3);
+          }
+          50% { 
+            text-shadow: 0 0 10px rgba(168, 85, 247, 0.8), 0 0 20px rgba(168, 85, 247, 0.5), 0 0 30px rgba(168, 85, 247, 0.3);
+          }
+        }
+        
+        @keyframes textWave {
+          0%, 100% { transform: translateY(0px); }
+          25% { transform: translateY(-2px); }
+          75% { transform: translateY(2px); }
+        }
+        
+        @keyframes textFade {
+          0%, 100% { opacity: 0.9; }
+          50% { opacity: 1; }
+        }
+        
+        .animate-text-glow {
+          animation: textGlow 3s ease-in-out infinite;
+        }
+        
+        .animate-text-wave {
+          animation: textWave 2s ease-in-out infinite;
+        }
+        
+        .animate-text-fade {
+          animation: textFade 4s ease-in-out infinite;
         }
       `}</style>
     </div>
